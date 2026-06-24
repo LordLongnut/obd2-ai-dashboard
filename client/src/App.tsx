@@ -9,10 +9,12 @@ import LiveDataGrid from "./components/obd/LiveDataGrid";
 import DtcList from "./components/obd/DtcList";
 import FreezeFrameData from "./components/obd/FreezeFrameData";
 import ReadinessMonitors from "./components/obd/ReadinessMonitors";
+import SymptomInput from "./components/ai/SymptomInput";
 import AiAssistantPanel from "./components/ai/AiAssistantPanel";
 
 function App() {
   const [scan, setScan] = useState<ObdScan | null>(null);
+  const [symptoms, setSymptoms] = useState("");
   const [diagnosis, setDiagnosis] = useState<AiDiagnosis | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -41,7 +43,12 @@ function App() {
     setErrorMessage(null);
 
     try {
-      const diagnosisData = await requestAiDiagnosis(scan);
+      const scanWithSymptoms: ObdScan = {
+        ...scan,
+        symptoms
+      };
+
+      const diagnosisData = await requestAiDiagnosis(scanWithSymptoms);
       setDiagnosis(diagnosisData);
     } catch (error) {
       console.error("AI diagnosis failed:", error);
@@ -83,6 +90,7 @@ function App() {
               <DtcList troubleCodes={scan.troubleCodes} />
               <FreezeFrameData freezeFrame={scan.freezeFrame} />
               <ReadinessMonitors monitors={scan.readinessMonitors} />
+              <SymptomInput value={symptoms} onChange={setSymptoms} />
               <AiAssistantPanel
                 hasScan={true}
                 diagnosis={diagnosis}

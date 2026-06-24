@@ -54,6 +54,7 @@ export type ObdScan = {
   troubleCodes: TroubleCode[];
   freezeFrame: FreezeFrameData;
   readinessMonitors: ReadinessMonitors;
+  symptoms?: string;
 };
 
 export type AiDiagnosis = {

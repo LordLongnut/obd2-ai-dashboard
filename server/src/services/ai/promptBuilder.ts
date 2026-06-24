@@ -3,6 +3,11 @@ import type { ObdScan } from "../../types/obd.js";
 export function buildDiagnosisPrompt(scan: ObdScan): string {
   const vehicle = `${scan.vehicle.year} ${scan.vehicle.make} ${scan.vehicle.model} ${scan.vehicle.engine}`;
 
+  const symptomsText =
+    scan.symptoms && scan.symptoms.trim().length > 0
+      ? scan.symptoms.trim()
+      : "No driver or technician symptoms were provided.";
+
   const troubleCodesText = scan.troubleCodes
     .map((dtc) => {
       return `
@@ -20,6 +25,9 @@ Vehicle:
 ${vehicle}
 VIN: ${scan.vehicle.vin}
 Mileage: ${scan.vehicle.mileage}
+
+Driver / Technician Symptoms:
+${symptomsText}
 
 Live Data:
 - RPM: ${scan.liveData.rpm}
