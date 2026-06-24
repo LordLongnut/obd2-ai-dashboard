@@ -1,14 +1,16 @@
 import { useState } from "react";
 import axios from "axios";
 
-import type { AiDiagnosis, MockScan } from "./types/obd";
+import type { AiDiagnosis, ObdScan } from "./types/obd";
 import VehicleCard from "./components/dashboard/VehicleCard";
 import LiveDataGrid from "./components/obd/LiveDataGrid";
 import DtcList from "./components/obd/DtcList";
+import FreezeFrameData from "./components/obd/FreezeFrameData";
+import ReadinessMonitors from "./components/obd/ReadinessMonitors";
 import AiAssistantPanel from "./components/ai/AiAssistantPanel";
 
 function App() {
-  const [scan, setScan] = useState<MockScan | null>(null);
+  const [scan, setScan] = useState<ObdScan | null>(null);
   const [diagnosis, setDiagnosis] = useState<AiDiagnosis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -58,8 +60,10 @@ function App() {
           {scan ? (
             <>
               <VehicleCard vehicle={scan.vehicle} />
-              <LiveDataGrid scan={scan} />
-              <DtcList codes={scan.codes} />
+              <LiveDataGrid liveData={scan.liveData} />
+              <DtcList troubleCodes={scan.troubleCodes} />
+              <FreezeFrameData freezeFrame={scan.freezeFrame} />
+              <ReadinessMonitors monitors={scan.readinessMonitors} />
               <AiAssistantPanel
                 hasScan={true}
                 diagnosis={diagnosis}

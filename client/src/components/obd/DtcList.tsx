@@ -1,25 +1,44 @@
+import type { TroubleCode } from "../../types/obd";
+
 type DtcListProps = {
-  codes: string[];
+  troubleCodes: TroubleCode[];
 };
 
-function DtcList({ codes }: DtcListProps) {
+function DtcList({ troubleCodes }: DtcListProps) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
       <h3 className="text-xl font-semibold mb-3">Trouble Codes</h3>
 
-      {codes.length === 0 ? (
+      {troubleCodes.length === 0 ? (
         <p className="text-slate-400">No diagnostic trouble codes found.</p>
       ) : (
-        <ul className="space-y-2">
-          {codes.map((code) => (
-            <li
-              key={code}
-              className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono"
+        <div className="space-y-3">
+          {troubleCodes.map((dtc) => (
+            <div
+              key={dtc.code}
+              className="bg-slate-950 border border-slate-800 rounded-lg p-4"
             >
-              {code}
-            </li>
+              <div className="flex items-center justify-between gap-4">
+                <p className="font-mono text-lg">{dtc.code}</p>
+                <span className="text-xs bg-yellow-500/10 text-yellow-300 border border-yellow-500/20 rounded-full px-3 py-1">
+                  {dtc.severity}
+                </span>
+              </div>
+
+              <p className="mt-2 font-semibold">{dtc.description}</p>
+              <p className="text-slate-400 text-sm">{dtc.system}</p>
+
+              <div className="mt-3">
+                <p className="text-slate-400 text-sm mb-1">Possible causes:</p>
+                <ul className="list-disc list-inside text-sm text-slate-300 space-y-1">
+                  {dtc.possibleCauses.map((cause) => (
+                    <li key={cause}>{cause}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
