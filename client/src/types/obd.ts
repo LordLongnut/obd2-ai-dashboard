@@ -6,3 +6,10 @@ export type MockScan = {
   longTermFuelTrim: number;
   codes: string[];
 };
+
+export type AiDiagnosis = {
+  summary: string;
+  severity: "Low" | "Medium" | "High";
+  likelyCauses: string[];
+  nextSteps: string[];
+};

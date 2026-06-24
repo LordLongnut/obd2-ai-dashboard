@@ -1,7 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 
-import type { MockScan } from "./types/obd";
+import type { AiDiagnosis, MockScan } from "./types/obd";
 import VehicleCard from "./components/dashboard/VehicleCard";
 import LiveDataGrid from "./components/obd/LiveDataGrid";
 import DtcList from "./components/obd/DtcList";
@@ -9,10 +9,32 @@ import AiAssistantPanel from "./components/ai/AiAssistantPanel";
 
 function App() {
   const [scan, setScan] = useState<MockScan | null>(null);
+  const [diagnosis, setDiagnosis] = useState<AiDiagnosis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   async function runMockScan() {
     const response = await axios.get("http://localhost:5000/api/obd/mock-scan");
     setScan(response.data);
+    setDiagnosis(null);
+  }
+
+  async function analyzeWithAi() {
+    if (!scan) return;
+
+    setIsAnalyzing(true);
+
+    try {
+      const response = await axios.post(
+        "http://localhost:5000/api/ai/diagnose",
+        scan
+      );
+
+      setDiagnosis(response.data);
+    } catch (error) {
+      console.error("AI diagnosis failed:", error);
+    } finally {
+      setIsAnalyzing(false);
+    }
   }
 
   return (
@@ -38,10 +60,20 @@ function App() {
               <VehicleCard vehicle={scan.vehicle} />
               <LiveDataGrid scan={scan} />
               <DtcList codes={scan.codes} />
-              <AiAssistantPanel hasScan={true} />
+              <AiAssistantPanel
+                hasScan={true}
+                diagnosis={diagnosis}
+                isLoading={isAnalyzing}
+                onAnalyze={analyzeWithAi}
+              />
             </>
           ) : (
-            <AiAssistantPanel hasScan={false} />
+            <AiAssistantPanel
+              hasScan={false}
+              diagnosis={null}
+              isLoading={false}
+              onAnalyze={analyzeWithAi}
+            />
           )}
         </div>
       </section>
