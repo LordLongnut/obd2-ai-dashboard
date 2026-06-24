@@ -1,5 +1,5 @@
 import type { ObdScan } from "../../types/obd.js";
-import { getMockElm327Snapshot } from "./mockElm327Service.js";
+import { getObdSnapshot } from "./obdAdapterService.js";
 import { lookupTroubleCode } from "./dtcLookupService.js";
 import {
   parseCoolantTempF,
@@ -15,7 +15,7 @@ import {
 } from "./obdParser.js";
 
 export function getMockScan(): ObdScan {
-  const raw = getMockElm327Snapshot();
+  const raw = getObdSnapshot();
 
   const dtcCodes = parseDtcResponse(raw.storedTroubleCodes);
   const troubleCodes = dtcCodes.map(lookupTroubleCode);
