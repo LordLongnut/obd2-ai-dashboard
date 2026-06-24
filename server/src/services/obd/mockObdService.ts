@@ -1,6 +1,38 @@
 import type { ObdScan } from "../../types/obd.js";
+import { getMockElm327Snapshot } from "./mockElm327Service.js";
+import { lookupTroubleCode } from "./dtcLookupService.js";
+import {
+  parseCoolantTempF,
+  parseDtcResponse,
+  parseEngineLoadPercent,
+  parseEngineRpm,
+  parseFuelTrimPercent,
+  parseIntakeAirTempF,
+  parseMafGps,
+  parseO2SensorVoltage,
+  parseThrottlePositionPercent,
+  parseVehicleSpeedMph
+} from "./obdParser.js";
 
 export function getMockScan(): ObdScan {
+  const raw = getMockElm327Snapshot();
+
+  const dtcCodes = parseDtcResponse(raw.storedTroubleCodes);
+  const troubleCodes = dtcCodes.map(lookupTroubleCode);
+
+  const liveData = {
+    rpm: parseEngineRpm(raw.rpm),
+    vehicleSpeedMph: parseVehicleSpeedMph(raw.vehicleSpeed),
+    coolantTempF: parseCoolantTempF(raw.coolantTemp),
+    intakeAirTempF: parseIntakeAirTempF(raw.intakeAirTemp),
+    engineLoadPercent: parseEngineLoadPercent(raw.engineLoad),
+    throttlePositionPercent: parseThrottlePositionPercent(raw.throttlePosition),
+    mafGps: parseMafGps(raw.maf),
+    shortTermFuelTrimBank1Percent: parseFuelTrimPercent(raw.shortTermFuelTrimBank1),
+    longTermFuelTrimBank1Percent: parseFuelTrimPercent(raw.longTermFuelTrimBank1),
+    o2SensorVoltageBank1Sensor1: parseO2SensorVoltage(raw.o2Bank1Sensor1)
+  };
+
   return {
     id: "scan-001",
     createdAt: new Date().toISOString(),
@@ -12,44 +44,8 @@ export function getMockScan(): ObdScan {
       vin: "WA1LFAFP0FA000000",
       mileage: 142350
     },
-    liveData: {
-      rpm: 820,
-      vehicleSpeedMph: 0,
-      coolantTempF: 196,
-      intakeAirTempF: 91,
-      engineLoadPercent: 28,
-      throttlePositionPercent: 12,
-      mafGps: 3.8,
-      shortTermFuelTrimBank1Percent: -2.1,
-      longTermFuelTrimBank1Percent: 7.8,
-      o2SensorVoltageBank1Sensor1: 0.74
-    },
-    troubleCodes: [
-      {
-        code: "P0171",
-        description: "System Too Lean Bank 1",
-        system: "Fuel / Air Metering",
-        severity: "Medium",
-        possibleCauses: [
-          "Vacuum leak",
-          "Dirty mass airflow sensor",
-          "Weak fuel pressure",
-          "Exhaust leak before oxygen sensor"
-        ]
-      },
-      {
-        code: "P0302",
-        description: "Cylinder 2 Misfire Detected",
-        system: "Ignition / Misfire",
-        severity: "Medium",
-        possibleCauses: [
-          "Worn spark plug",
-          "Faulty ignition coil",
-          "Fuel injector issue",
-          "Compression issue"
-        ]
-      }
-    ],
+    liveData,
+    troubleCodes,
     freezeFrame: {
       rpm: 1860,
       vehicleSpeedMph: 34,
