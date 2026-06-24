@@ -1,9 +1,18 @@
 import type { Request, Response } from "express";
-import { getMockDiagnosis } from "../services/ai/mockAiService.js";
+import { getRealAiDiagnosis } from "../services/ai/aiDiagnosisService.js";
 
-export function diagnoseScan(req: Request, res: Response) {
-  const scan = req.body;
-  const diagnosis = getMockDiagnosis(scan);
+export async function diagnoseScan(req: Request, res: Response) {
+  try {
+    const scan = req.body;
+    const diagnosis = await getRealAiDiagnosis(scan);
 
-  res.json(diagnosis);
+    res.json(diagnosis);
+  } catch (error) {
+    console.error("AI diagnosis failed:", error);
+
+    res.status(500).json({
+      message: "AI diagnosis failed",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
 }
