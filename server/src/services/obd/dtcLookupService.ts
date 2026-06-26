@@ -22,7 +22,19 @@ const dtcTable: Record<string, Omit<TroubleCode, "code">> = {
       "Fuel injector issue",
       "Compression issue"
     ]
-  }
+  },
+  P0155: {
+    description: "O2 Sensor Heater Circuit Bank 2 Sensor 1",
+    system: "Oxygen Sensor / Heater Circuit",
+    severity: "Medium",
+    possibleCauses: [
+      "Failed oxygen sensor heater element",
+      "Blown O2 sensor heater fuse",
+      "Damaged wiring to bank 2 sensor 1",
+      "Poor connector contact",
+      "PCM driver issue"
+    ]
+  },
 };
 
 export function lookupTroubleCode(code: string): TroubleCode {
