@@ -5,6 +5,7 @@ import { fetchLiveObdSnapshot, fetchMockObdScan } from "./services/obdApi";
 import { requestAiDiagnosis } from "./services/aiApi";
 
 import VehicleCard from "./components/dashboard/VehicleCard";
+import ScanSummaryCard from "./components/dashboard/ScanSummaryCard";
 import LiveDataGrid from "./components/obd/LiveDataGrid";
 import DtcList from "./components/obd/DtcList";
 import FreezeFrameData from "./components/obd/FreezeFrameData";
@@ -109,17 +110,6 @@ function App() {
           </button>
         </div>
 
-        {scanSource && (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-5">
-            <p className="text-slate-400 text-sm">Current scan source</p>
-            <p className="font-semibold">
-              {scanSource === "live"
-                ? "Live OBDLink EX data from /dev/ttyUSB0"
-                : "Simulated ELM327 data"}
-            </p>
-          </div>
-        )}
-
         {errorMessage && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-200 rounded-xl p-4 mb-5">
             {errorMessage}
@@ -129,6 +119,11 @@ function App() {
         <div className="grid gap-5">
           {scan ? (
             <>
+              <ScanSummaryCard
+                scan={scan}
+                scanSource={scanSource}
+                diagnosis={diagnosis}
+              />
               <VehicleCard vehicle={scan.vehicle} />
               <LiveDataGrid liveData={scan.liveData} />
               <DtcList troubleCodes={scan.troubleCodes} />
