@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { AiDiagnosis, ObdScan } from "./types/obd";
-import { fetchMockObdScan } from "./services/obdApi";
+import { fetchLiveObdSnapshot, fetchMockObdScan } from "./services/obdApi";
 import { requestAiDiagnosis } from "./services/aiApi";
 
 import VehicleCard from "./components/dashboard/VehicleCard";
@@ -12,25 +12,48 @@ import ReadinessMonitors from "./components/obd/ReadinessMonitors";
 import SymptomInput from "./components/ai/SymptomInput";
 import AiAssistantPanel from "./components/ai/AiAssistantPanel";
 
+type ScanSource = "simulated" | "live" | null;
+
 function App() {
   const [scan, setScan] = useState<ObdScan | null>(null);
+  const [scanSource, setScanSource] = useState<ScanSource>(null);
   const [symptoms, setSymptoms] = useState("");
   const [diagnosis, setDiagnosis] = useState<AiDiagnosis | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function runMockScan() {
+  async function runSimulatedScan() {
     setIsScanning(true);
     setErrorMessage(null);
 
     try {
       const scanData = await fetchMockObdScan();
       setScan(scanData);
+      setScanSource("simulated");
       setDiagnosis(null);
     } catch (error) {
-      console.error("Mock scan failed:", error);
-      setErrorMessage("Failed to fetch mock OBD2 scan data.");
+      console.error("Simulated scan failed:", error);
+      setErrorMessage("Failed to fetch simulated OBD-II scan data.");
+    } finally {
+      setIsScanning(false);
+    }
+  }
+
+  async function runLiveScan() {
+    setIsScanning(true);
+    setErrorMessage(null);
+
+    try {
+      const scanData = await fetchLiveObdSnapshot();
+      setScan(scanData);
+      setScanSource("live");
+      setDiagnosis(null);
+    } catch (error) {
+      console.error("Live scan failed:", error);
+      setErrorMessage(
+        "Failed to read live OBD-II data. Check that the adapter is plugged in, the key is on, and /dev/ttyUSB0 is available."
+      );
     } finally {
       setIsScanning(false);
     }
@@ -68,13 +91,34 @@ function App() {
           </p>
         </div>
 
-        <button
-          onClick={runMockScan}
-          disabled={isScanning}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-semibold mb-8"
-        >
-          {isScanning ? "Scanning..." : "Run Mock Scan"}
-        </button>
+        <div className="flex flex-wrap gap-3 mb-5">
+          <button
+            onClick={runSimulatedScan}
+            disabled={isScanning}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-semibold"
+          >
+            {isScanning ? "Scanning..." : "Run Simulated Scan"}
+          </button>
+
+          <button
+            onClick={runLiveScan}
+            disabled={isScanning}
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-900 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-semibold"
+          >
+            {isScanning ? "Scanning..." : "Run Live Scan"}
+          </button>
+        </div>
+
+        {scanSource && (
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-5">
+            <p className="text-slate-400 text-sm">Current scan source</p>
+            <p className="font-semibold">
+              {scanSource === "live"
+                ? "Live OBDLink EX data from /dev/ttyUSB0"
+                : "Simulated ELM327 data"}
+            </p>
+          </div>
+        )}
 
         {errorMessage && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-200 rounded-xl p-4 mb-5">

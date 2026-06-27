@@ -1,6 +1,18 @@
 import type { TroubleCode } from "../../types/obd.js";
 
 const dtcTable: Record<string, Omit<TroubleCode, "code">> = {
+  P0155: {
+    description: "O2 Sensor Heater Circuit Bank 2 Sensor 1",
+    system: "Oxygen Sensor / Heater Circuit",
+    severity: "Medium",
+    possibleCauses: [
+      "Failed oxygen sensor heater element",
+      "Blown O2 sensor heater fuse",
+      "Damaged wiring to bank 2 sensor 1",
+      "Poor connector contact",
+      "PCM driver issue"
+    ]
+  },
   P0171: {
     description: "System Too Lean Bank 1",
     system: "Fuel / Air Metering",
@@ -10,6 +22,17 @@ const dtcTable: Record<string, Omit<TroubleCode, "code">> = {
       "Dirty mass airflow sensor",
       "Weak fuel pressure",
       "Exhaust leak before oxygen sensor"
+    ]
+  },
+  P0172: {
+    description: "System Too Rich Bank 1",
+    system: "Fuel / Air Metering",
+    severity: "Medium",
+    possibleCauses: [
+      "Leaking fuel injector",
+      "Excessive fuel pressure",
+      "Contaminated mass airflow sensor",
+      "Restricted air intake"
     ]
   },
   P0302: {
@@ -23,18 +46,17 @@ const dtcTable: Record<string, Omit<TroubleCode, "code">> = {
       "Compression issue"
     ]
   },
-  P0155: {
-    description: "O2 Sensor Heater Circuit Bank 2 Sensor 1",
-    system: "Oxygen Sensor / Heater Circuit",
+  P0420: {
+    description: "Catalyst System Efficiency Below Threshold Bank 1",
+    system: "Emissions / Catalyst",
     severity: "Medium",
     possibleCauses: [
-      "Failed oxygen sensor heater element",
-      "Blown O2 sensor heater fuse",
-      "Damaged wiring to bank 2 sensor 1",
-      "Poor connector contact",
-      "PCM driver issue"
+      "Aging catalytic converter",
+      "Exhaust leak",
+      "Oxygen sensor issue",
+      "Engine running rich or lean over time"
     ]
-  },
+  }
 };
 
 export function lookupTroubleCode(code: string): TroubleCode {
@@ -46,9 +68,7 @@ export function lookupTroubleCode(code: string): TroubleCode {
       description: "Unknown diagnostic trouble code",
       system: "Unknown",
       severity: "Medium",
-      possibleCauses: [
-        "Check manufacturer service information for this code"
-      ]
+      possibleCauses: ["Check manufacturer service information for this code"]
     };
   }
 
