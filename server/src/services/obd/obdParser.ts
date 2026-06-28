@@ -32,6 +32,93 @@ function getPidDataBytes(response: string, pid: number): number[] {
   return bytes.slice(responseIndex + 2);
 }
 
+export function parseVinResponse(response: string): string {
+  const lines = response
+    .toUpperCase()
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.includes(">"));
+
+  const payloadBytes: number[] = [];
+
+  for (const line of lines) {
+    const tokens = line
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter(Boolean);
+
+    // Example VIN response with headers:
+    // 7E8 10 14 49 02 01 59 56 34
+    // 7E8 21 39 30 32 44 5A 36 45
+    // 7E8 22 32 35 34 32 36 39 32
+
+    const withoutHeader =
+      tokens[0]?.length === 3 && /^[0-9A-F]{3}$/.test(tokens[0])
+        ? tokens.slice(1)
+        : tokens;
+
+    const bytes = withoutHeader
+      .filter((token) => /^[0-9A-F]{2}$/.test(token))
+      .map((token) => parseInt(token, 16));
+
+    if (bytes.length === 0) continue;
+
+    const firstByte = bytes[0];
+
+    // First ISO-TP frame: 10 14 [payload...]
+    if ((firstByte & 0xf0) === 0x10) {
+      payloadBytes.push(...bytes.slice(2));
+      continue;
+    }
+
+    // Consecutive ISO-TP frame: 21 [payload...], 22 [payload...]
+    if ((firstByte & 0xf0) === 0x20) {
+      payloadBytes.push(...bytes.slice(1));
+      continue;
+    }
+
+    // Single-frame or already-clean response
+    payloadBytes.push(...bytes);
+  }
+
+  let vinDataStart = payloadBytes.findIndex((byte, index) => {
+    return byte === 0x49 && payloadBytes[index + 1] === 0x02;
+  });
+
+  if (vinDataStart === -1) {
+    const fallbackBytes = hexBytes(response);
+    vinDataStart = fallbackBytes.findIndex((byte, index) => {
+      return byte === 0x49 && fallbackBytes[index + 1] === 0x02;
+    });
+
+    if (vinDataStart === -1) return "UNKNOWN";
+
+    const fallbackVinBytes = fallbackBytes
+      .slice(vinDataStart + 3)
+      .filter((byte) => byte >= 0x30 && byte <= 0x5a);
+
+    const fallbackVinText = String.fromCharCode(...fallbackVinBytes)
+      .replace(/[^A-HJ-NPR-Z0-9]/g, "")
+      .trim();
+
+    const fallbackMatch = fallbackVinText.match(/[A-HJ-NPR-Z0-9]{17}/);
+    return fallbackMatch ? fallbackMatch[0] : "UNKNOWN";
+  }
+
+  const vinBytes = payloadBytes
+    .slice(vinDataStart + 3)
+    .filter((byte) => byte >= 0x30 && byte <= 0x5a);
+
+  const vinText = String.fromCharCode(...vinBytes)
+    .replace(/[^A-HJ-NPR-Z0-9]/g, "")
+    .trim();
+
+  const vinMatch = vinText.match(/[A-HJ-NPR-Z0-9]{17}/);
+
+  return vinMatch ? vinMatch[0] : "UNKNOWN";
+}
+
 export function parseMonitorStatus(response: string) {
   const [a] = getPidDataBytes(response, 0x01);
 

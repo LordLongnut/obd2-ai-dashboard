@@ -14,6 +14,7 @@ import {
   parseMafGps,
   parseMapKpa,
   parseMonitorStatus,
+  parseVinResponse,
   parseO2SensorVoltage,
   parseRunTimeSeconds,
   parseThrottlePositionPercent,
@@ -38,6 +39,10 @@ function safeOptionalNumber(parseFn: () => number): number | undefined {
 
 export async function getLiveObdScan(): Promise<ObdScan> {
   const raw = await readLiveElm327Snapshot();
+
+  console.log("Raw VIN response from adapter:", raw.vin || "[empty]");
+
+  const vin = parseVinResponse(raw.vin);
 
   const storedCodes = parseDtcResponse(raw.storedTroubleCodes, 0x43).map(
     (code) => lookupTroubleCode(code, "Stored")
@@ -102,7 +107,7 @@ export async function getLiveObdScan(): Promise<ObdScan> {
       make: "Live",
       model: "OBD-II Vehicle",
       engine: "Unknown",
-      vin: "UNKNOWN",
+      vin,
       mileage: 0
     },
     liveData,

@@ -1,6 +1,7 @@
 import { SerialPort } from "serialport";
 
 export type LiveRawObdSnapshot = {
+  vin: string;
   monitorStatus: string;
   engineLoad: string;
   coolantTemp: string;
@@ -23,7 +24,7 @@ export type LiveRawObdSnapshot = {
   permanentTroubleCodes: string;
 };
 
-const INIT_COMMANDS = ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP0"];
+const INIT_COMMANDS = ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATAL", "ATSP0"];
 
 function cleanElmResponse(command: string, raw: string): string {
   const compactCommand = command.toUpperCase().replace(/\s/g, "");
@@ -60,6 +61,69 @@ function closeSerialPort(port: SerialPort): Promise<void> {
     port.close(() => resolve());
   });
 }
+
+
+function sendRawCommand(
+  port: SerialPort,
+  command: string,
+  timeoutMs = 10000
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let buffer = "";
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Timed out waiting for raw OBD response to ${command}`));
+    }, timeoutMs);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      port.off("data", onData);
+    }
+
+    function onData(data: Buffer) {
+      buffer += data.toString("utf8");
+
+      if (buffer.includes(">")) {
+        cleanup();
+        resolve(buffer);
+      }
+    }
+
+    port.on("data", onData);
+
+    port.write(`${command}\r`, (error) => {
+      if (error) {
+        cleanup();
+        reject(error);
+      }
+    });
+  });
+}
+
+async function readVinResponse(port: SerialPort): Promise<string> {
+  try {
+    await sendCommand(port, "ATL1");
+    await sendCommand(port, "ATS1");
+    await sendCommand(port, "ATH1");
+    await sendCommand(port, "ATAL");
+    await sendCommand(port, "ATCAF1");
+
+    const vinResponse = await sendRawCommand(port, "0902", 10000);
+
+    await sendCommand(port, "ATH0");
+    await sendCommand(port, "ATL0");
+    await sendCommand(port, "ATS0");
+
+    return vinResponse;
+  } catch {
+    await sendCommand(port, "ATH0").catch(() => {});
+    await sendCommand(port, "ATL0").catch(() => {});
+    await sendCommand(port, "ATS0").catch(() => {});
+    return "";
+  }
+}
+
 
 function sendCommand(
   port: SerialPort,
@@ -104,7 +168,8 @@ async function readOptionalPid(
   command: string
 ): Promise<string> {
   try {
-    const response = await sendCommand(port, command);
+    const timeout = command === "0902" ? 10000 : 4000;
+    const response = await sendCommand(port, command, timeout);
 
     if (!response || response.includes("NODATA") || response.includes("?")) {
       return "";
@@ -134,6 +199,7 @@ export async function readLiveElm327Snapshot(): Promise<LiveRawObdSnapshot> {
     }
 
     return {
+      vin: await readVinResponse(port),
       monitorStatus: await readOptionalPid(port, "0101"),
       engineLoad: await readOptionalPid(port, "0104"),
       coolantTemp: await readOptionalPid(port, "0105"),
