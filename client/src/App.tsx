@@ -12,6 +12,7 @@ import FreezeFrameData from "./components/obd/FreezeFrameData";
 import ReadinessMonitors from "./components/obd/ReadinessMonitors";
 import SymptomInput from "./components/ai/SymptomInput";
 import AiAssistantPanel from "./components/ai/AiAssistantPanel";
+import DiagnosticReport from "./components/ai/DiagnosticReport";
 
 type ScanSource = "simulated" | "live" | null;
 
@@ -136,6 +137,15 @@ function App() {
                 isLoading={isAnalyzing}
                 onAnalyze={analyzeWithAi}
               />
+
+              {diagnosis && (
+                <DiagnosticReport
+                  scan={scan}
+                  diagnosis={diagnosis}
+                  symptoms={symptoms}
+                  scanSource={scanSource}
+                />
+              )}
             </>
           ) : (
             <AiAssistantPanel
