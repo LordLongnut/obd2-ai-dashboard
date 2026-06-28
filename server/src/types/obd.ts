@@ -1,4 +1,5 @@
 export type Severity = "Low" | "Medium" | "High";
+export type TroubleCodeStatus = "Stored" | "Pending" | "Permanent";
 
 export type VehicleInfo = {
   year: number;
@@ -7,6 +8,11 @@ export type VehicleInfo = {
   engine: string;
   vin: string;
   mileage: number;
+};
+
+export type MonitorStatus = {
+  milOn: boolean;
+  storedCodeCount: number;
 };
 
 export type LiveData = {
@@ -20,6 +26,13 @@ export type LiveData = {
   shortTermFuelTrimBank1Percent: number;
   longTermFuelTrimBank1Percent: number;
   o2SensorVoltageBank1Sensor1: number;
+
+  mapKpa?: number;
+  o2SensorVoltageBank1Sensor2?: number;
+  runTimeSeconds?: number;
+  fuelLevelPercent?: number;
+  barometricPressureKpa?: number;
+  controlModuleVoltage?: number;
 };
 
 export type TroubleCode = {
@@ -27,6 +40,7 @@ export type TroubleCode = {
   description: string;
   system: string;
   severity: Severity;
+  status?: TroubleCodeStatus;
   possibleCauses: string[];
 };
 
@@ -54,5 +68,6 @@ export type ObdScan = {
   troubleCodes: TroubleCode[];
   freezeFrame: FreezeFrameData;
   readinessMonitors: ReadinessMonitors;
+  monitorStatus?: MonitorStatus;
   symptoms?: string;
 };

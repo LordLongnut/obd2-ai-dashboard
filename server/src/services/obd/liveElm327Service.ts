@@ -1,6 +1,7 @@
 import { SerialPort } from "serialport";
 
 export type LiveRawObdSnapshot = {
+  monitorStatus: string;
   engineLoad: string;
   coolantTemp: string;
   shortTermFuelTrimBank1: string;
@@ -12,8 +13,14 @@ export type LiveRawObdSnapshot = {
   maf: string;
   throttlePosition: string;
   o2Bank1Sensor1: string;
-  monitorStatus: string;
+  o2Bank1Sensor2: string;
+  runTime: string;
+  fuelLevel: string;
+  barometricPressure: string;
+  controlModuleVoltage: string;
   storedTroubleCodes: string;
+  pendingTroubleCodes: string;
+  permanentTroubleCodes: string;
 };
 
 const INIT_COMMANDS = ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP0"];
@@ -139,7 +146,14 @@ export async function readLiveElm327Snapshot(): Promise<LiveRawObdSnapshot> {
       maf: await readOptionalPid(port, "0110"),
       throttlePosition: await readOptionalPid(port, "0111"),
       o2Bank1Sensor1: await readOptionalPid(port, "0114"),
-      storedTroubleCodes: await readOptionalPid(port, "03")
+      o2Bank1Sensor2: await readOptionalPid(port, "0115"),
+      runTime: await readOptionalPid(port, "011F"),
+      fuelLevel: await readOptionalPid(port, "012F"),
+      barometricPressure: await readOptionalPid(port, "0133"),
+      controlModuleVoltage: await readOptionalPid(port, "0142"),
+      storedTroubleCodes: await readOptionalPid(port, "03"),
+      pendingTroubleCodes: await readOptionalPid(port, "07"),
+      permanentTroubleCodes: await readOptionalPid(port, "0A")
     };
   } finally {
     await closeSerialPort(port);

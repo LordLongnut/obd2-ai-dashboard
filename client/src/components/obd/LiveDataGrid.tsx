@@ -4,8 +4,24 @@ type LiveDataGridProps = {
   liveData: LiveData;
 };
 
+type LiveDataItem = {
+  label: string;
+  value: string | number;
+};
+
+function addOptionalNumber(
+  items: LiveDataItem[],
+  label: string,
+  value: number | undefined,
+  suffix = ""
+) {
+  if (typeof value === "number") {
+    items.push({ label, value: `${value}${suffix}` });
+  }
+}
+
 function LiveDataGrid({ liveData }: LiveDataGridProps) {
-  const items = [
+  const items: LiveDataItem[] = [
     { label: "RPM", value: liveData.rpm },
     { label: "Vehicle Speed", value: `${liveData.vehicleSpeedMph} mph` },
     { label: "Coolant Temp", value: `${liveData.coolantTempF}°F` },
@@ -26,6 +42,18 @@ function LiveDataGrid({ liveData }: LiveDataGridProps) {
       value: `${liveData.o2SensorVoltageBank1Sensor1} V`
     }
   ];
+
+  addOptionalNumber(items, "MAP", liveData.mapKpa, " kPa");
+  addOptionalNumber(items, "O2 B1S2", liveData.o2SensorVoltageBank1Sensor2, " V");
+  addOptionalNumber(items, "Fuel Level", liveData.fuelLevelPercent, "%");
+  addOptionalNumber(items, "Baro Pressure", liveData.barometricPressureKpa, " kPa");
+  addOptionalNumber(
+    items,
+    "Control Module Voltage",
+    liveData.controlModuleVoltage,
+    " V"
+  );
+  addOptionalNumber(items, "Engine Runtime", liveData.runTimeSeconds, " sec");
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">

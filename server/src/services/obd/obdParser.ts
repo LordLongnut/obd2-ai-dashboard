@@ -7,15 +7,12 @@ function hexBytes(response: string): number[] {
     .replace(/>/g, "")
     .replace(/[^0-9A-F]/g, "");
 
-  if (!compact || compact.length < 2) {
-    return [];
-  }
+  if (!compact || compact.length < 2) return [];
 
   const evenLengthCompact =
     compact.length % 2 === 0 ? compact : compact.slice(0, -1);
 
   const pairs = evenLengthCompact.match(/.{1,2}/g) || [];
-
   return pairs.map((pair) => parseInt(pair, 16));
 }
 
@@ -27,10 +24,21 @@ function getPidDataBytes(response: string, pid: number): number[] {
   });
 
   if (responseIndex === -1) {
-    throw new Error(`Could not find PID response 41 ${pid.toString(16)} in: ${response}`);
+    throw new Error(
+      `Could not find PID response 41 ${pid.toString(16)} in: ${response}`
+    );
   }
 
   return bytes.slice(responseIndex + 2);
+}
+
+export function parseMonitorStatus(response: string) {
+  const [a] = getPidDataBytes(response, 0x01);
+
+  return {
+    milOn: (a & 0x80) !== 0,
+    storedCodeCount: a & 0x7f
+  };
 }
 
 export function parseEngineRpm(response: string): number {
@@ -80,19 +88,40 @@ export function parseMapKpa(response: string): number {
   return a;
 }
 
-export function parseO2SensorVoltage(response: string): number {
-  const [a] = getPidDataBytes(response, 0x14);
+export function parseO2SensorVoltage(response: string, pid: 0x14 | 0x15): number {
+  const [a] = getPidDataBytes(response, pid);
   return Number((a / 200).toFixed(2));
 }
 
-export function parseDtcResponse(response: string): string[] {
+export function parseRunTimeSeconds(response: string): number {
+  const [a, b] = getPidDataBytes(response, 0x1f);
+  return (a * 256) + b;
+}
+
+export function parseFuelLevelPercent(response: string): number {
+  const [a] = getPidDataBytes(response, 0x2f);
+  return Number(((a * 100) / 255).toFixed(1));
+}
+
+export function parseBarometricPressureKpa(response: string): number {
+  const [a] = getPidDataBytes(response, 0x33);
+  return a;
+}
+
+export function parseControlModuleVoltage(response: string): number {
+  const [a, b] = getPidDataBytes(response, 0x42);
+  return Number((((a * 256) + b) / 1000).toFixed(2));
+}
+
+export function parseDtcResponse(
+  response: string,
+  responseServiceByte: 0x43 | 0x47 | 0x4a = 0x43
+): string[] {
   const bytes = hexBytes(response);
 
-  const responseIndex = bytes.findIndex((byte) => byte === 0x43);
+  const responseIndex = bytes.findIndex((byte) => byte === responseServiceByte);
 
-  if (responseIndex === -1) {
-    return [];
-  }
+  if (responseIndex === -1) return [];
 
   const dataBytes = bytes.slice(responseIndex + 1);
   const codes: string[] = [];
@@ -113,7 +142,11 @@ export function parseDtcResponse(response: string): string[] {
     const fourthDigit = b & 0x0f;
 
     codes.push(
-      `${system}${firstDigit}${secondDigit.toString(16).toUpperCase()}${thirdDigit.toString(16).toUpperCase()}${fourthDigit.toString(16).toUpperCase()}`
+      `${system}${firstDigit}${secondDigit
+        .toString(16)
+        .toUpperCase()}${thirdDigit.toString(16).toUpperCase()}${fourthDigit
+        .toString(16)
+        .toUpperCase()}`
     );
   }
 

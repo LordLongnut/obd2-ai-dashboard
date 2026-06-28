@@ -2,14 +2,20 @@ import type { ObdScan } from "../../types/obd.js";
 import { lookupTroubleCode } from "./dtcLookupService.js";
 import { readLiveElm327Snapshot } from "./liveElm327Service.js";
 import {
+  parseBarometricPressureKpa,
+  parseControlModuleVoltage,
   parseCoolantTempF,
   parseDtcResponse,
   parseEngineLoadPercent,
   parseEngineRpm,
+  parseFuelLevelPercent,
   parseFuelTrimPercent,
   parseIntakeAirTempF,
   parseMafGps,
+  parseMapKpa,
+  parseMonitorStatus,
   parseO2SensorVoltage,
+  parseRunTimeSeconds,
   parseThrottlePositionPercent,
   parseVehicleSpeedMph
 } from "./obdParser.js";
@@ -22,11 +28,35 @@ function safeNumber(parseFn: () => number, fallback = 0): number {
   }
 }
 
+function safeOptionalNumber(parseFn: () => number): number | undefined {
+  try {
+    return parseFn();
+  } catch {
+    return undefined;
+  }
+}
+
 export async function getLiveObdScan(): Promise<ObdScan> {
   const raw = await readLiveElm327Snapshot();
 
-  const dtcCodes = parseDtcResponse(raw.storedTroubleCodes);
-  const troubleCodes = dtcCodes.map(lookupTroubleCode);
+  const storedCodes = parseDtcResponse(raw.storedTroubleCodes, 0x43).map(
+    (code) => lookupTroubleCode(code, "Stored")
+  );
+
+  const pendingCodes = parseDtcResponse(raw.pendingTroubleCodes, 0x47).map(
+    (code) => lookupTroubleCode(code, "Pending")
+  );
+
+  const permanentCodes = parseDtcResponse(raw.permanentTroubleCodes, 0x4a).map(
+    (code) => lookupTroubleCode(code, "Permanent")
+  );
+
+  const troubleCodes = [...storedCodes, ...pendingCodes, ...permanentCodes];
+
+  const monitorStatus =
+    raw.monitorStatus.trim().length > 0
+      ? parseMonitorStatus(raw.monitorStatus)
+      : undefined;
 
   const liveData = {
     rpm: safeNumber(() => parseEngineRpm(raw.rpm)),
@@ -45,7 +75,22 @@ export async function getLiveObdScan(): Promise<ObdScan> {
       parseFuelTrimPercent(raw.longTermFuelTrimBank1, 0x07)
     ),
     o2SensorVoltageBank1Sensor1: safeNumber(() =>
-      parseO2SensorVoltage(raw.o2Bank1Sensor1)
+      parseO2SensorVoltage(raw.o2Bank1Sensor1, 0x14)
+    ),
+
+    mapKpa: safeOptionalNumber(() => parseMapKpa(raw.map)),
+    o2SensorVoltageBank1Sensor2: safeOptionalNumber(() =>
+      parseO2SensorVoltage(raw.o2Bank1Sensor2, 0x15)
+    ),
+    runTimeSeconds: safeOptionalNumber(() => parseRunTimeSeconds(raw.runTime)),
+    fuelLevelPercent: safeOptionalNumber(() =>
+      parseFuelLevelPercent(raw.fuelLevel)
+    ),
+    barometricPressureKpa: safeOptionalNumber(() =>
+      parseBarometricPressureKpa(raw.barometricPressure)
+    ),
+    controlModuleVoltage: safeOptionalNumber(() =>
+      parseControlModuleVoltage(raw.controlModuleVoltage)
     )
   };
 
@@ -62,6 +107,7 @@ export async function getLiveObdScan(): Promise<ObdScan> {
     },
     liveData,
     troubleCodes,
+    monitorStatus,
     freezeFrame: {
       rpm: liveData.rpm,
       vehicleSpeedMph: liveData.vehicleSpeedMph,
