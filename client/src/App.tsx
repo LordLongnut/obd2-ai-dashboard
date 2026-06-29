@@ -3,9 +3,15 @@ import { useState } from "react";
 import type { AiDiagnosis, ObdScan } from "./types/obd";
 import { fetchLiveObdSnapshot, fetchMockObdScan } from "./services/obdApi";
 import { requestAiDiagnosis } from "./services/aiApi";
+import {
+  fetchScanHistory,
+  saveScanRecord,
+  type SavedScanRecord
+} from "./services/scanApi";
 
 import VehicleCard from "./components/dashboard/VehicleCard";
 import ScanSummaryCard from "./components/dashboard/ScanSummaryCard";
+import ScanHistoryPanel from "./components/dashboard/ScanHistoryPanel";
 import LiveDataGrid from "./components/obd/LiveDataGrid";
 import DtcList from "./components/obd/DtcList";
 import FreezeFrameData from "./components/obd/FreezeFrameData";
@@ -21,19 +27,34 @@ function App() {
   const [scanSource, setScanSource] = useState<ScanSource>(null);
   const [symptoms, setSymptoms] = useState("");
   const [diagnosis, setDiagnosis] = useState<AiDiagnosis | null>(null);
+  const [scanHistory, setScanHistory] = useState<SavedScanRecord[]>([]);
+  const [lastSavedScanId, setLastSavedScanId] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  async function loadScanHistory() {
+    try {
+      const records = await fetchScanHistory();
+      setScanHistory(records);
+    } catch (error) {
+      console.error("Failed to load scan history:", error);
+      setErrorMessage("Failed to load scan history.");
+    }
+  }
+
   async function runSimulatedScan() {
     setIsScanning(true);
     setErrorMessage(null);
+    setSaveMessage(null);
 
     try {
       const scanData = await fetchMockObdScan();
       setScan(scanData);
       setScanSource("simulated");
       setDiagnosis(null);
+      setLastSavedScanId(null);
     } catch (error) {
       console.error("Simulated scan failed:", error);
       setErrorMessage("Failed to fetch simulated OBD-II scan data.");
@@ -45,12 +66,14 @@ function App() {
   async function runLiveScan() {
     setIsScanning(true);
     setErrorMessage(null);
+    setSaveMessage(null);
 
     try {
       const scanData = await fetchLiveObdSnapshot();
       setScan(scanData);
       setScanSource("live");
       setDiagnosis(null);
+      setLastSavedScanId(null);
     } catch (error) {
       console.error("Live scan failed:", error);
       setErrorMessage(
@@ -66,6 +89,7 @@ function App() {
 
     setIsAnalyzing(true);
     setErrorMessage(null);
+    setSaveMessage(null);
 
     try {
       const scanWithSymptoms: ObdScan = {
@@ -75,9 +99,22 @@ function App() {
 
       const diagnosisData = await requestAiDiagnosis(scanWithSymptoms);
       setDiagnosis(diagnosisData);
+
+      const savedRecord = await saveScanRecord({
+        scan: scanWithSymptoms,
+        diagnosis: diagnosisData,
+        symptoms,
+        scanSource
+      });
+
+      setLastSavedScanId(savedRecord.id);
+      setSaveMessage("Scan and AI diagnosis saved to history.");
+
+      const records = await fetchScanHistory();
+      setScanHistory(records);
     } catch (error) {
-      console.error("AI diagnosis failed:", error);
-      setErrorMessage("Failed to analyze scan data.");
+      console.error("AI diagnosis or save failed:", error);
+      setErrorMessage("Failed to analyze or save scan data.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -109,11 +146,24 @@ function App() {
           >
             {isScanning ? "Scanning..." : "Run Live Scan"}
           </button>
+
+          <button
+            onClick={loadScanHistory}
+            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2 rounded-lg font-semibold"
+          >
+            Load Scan History
+          </button>
         </div>
 
         {errorMessage && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-200 rounded-xl p-4 mb-5">
             {errorMessage}
+          </div>
+        )}
+
+        {saveMessage && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 rounded-xl p-4 mb-5">
+            {saveMessage}
           </div>
         )}
 
@@ -155,6 +205,12 @@ function App() {
               onAnalyze={analyzeWithAi}
             />
           )}
+
+          <ScanHistoryPanel
+            records={scanHistory}
+            onRefresh={loadScanHistory}
+            lastSavedScanId={lastSavedScanId}
+          />
         </div>
       </section>
     </main>
