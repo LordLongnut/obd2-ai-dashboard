@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { AiDiagnosis, ObdScan } from "./types/obd";
 import { fetchLiveObdSnapshot, fetchMockObdScan } from "./services/obdApi";
@@ -8,10 +8,17 @@ import {
   saveScanRecord,
   type SavedScanRecord
 } from "./services/scanApi";
+import {
+  fetchMonitoringStatus,
+  startMonitoring,
+  stopMonitoring,
+  type MonitoringStatus
+} from "./services/monitoringApi";
 
 import VehicleCard from "./components/dashboard/VehicleCard";
 import ScanSummaryCard from "./components/dashboard/ScanSummaryCard";
 import ScanHistoryPanel from "./components/dashboard/ScanHistoryPanel";
+import MonitoringPanel from "./components/dashboard/MonitoringPanel";
 import LiveDataGrid from "./components/obd/LiveDataGrid";
 import DtcList from "./components/obd/DtcList";
 import FreezeFrameData from "./components/obd/FreezeFrameData";
@@ -28,10 +35,13 @@ function App() {
   const [symptoms, setSymptoms] = useState("");
   const [diagnosis, setDiagnosis] = useState<AiDiagnosis | null>(null);
   const [scanHistory, setScanHistory] = useState<SavedScanRecord[]>([]);
+  const [monitoringStatus, setMonitoringStatus] =
+    useState<MonitoringStatus | null>(null);
   const [lastSavedScanId, setLastSavedScanId] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isMonitoringBusy, setIsMonitoringBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function loadScanHistory() {
@@ -41,6 +51,63 @@ function App() {
     } catch (error) {
       console.error("Failed to load scan history:", error);
       setErrorMessage("Failed to load scan history.");
+    }
+  }
+
+  async function loadMonitoringStatus() {
+    try {
+      const status = await fetchMonitoringStatus();
+      setMonitoringStatus(status);
+
+      if (status.latestSnapshot) {
+        setScan(status.latestSnapshot);
+        setScanSource("live");
+      }
+    } catch (error) {
+      console.error("Failed to load monitoring status:", error);
+    }
+  }
+
+  useEffect(() => {
+    void loadMonitoringStatus();
+
+    const interval = setInterval(() => {
+      void loadMonitoringStatus();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  async function handleStartMonitoring() {
+    setIsMonitoringBusy(true);
+    setErrorMessage(null);
+    setSaveMessage(null);
+
+    try {
+      const status = await startMonitoring(5);
+      setMonitoringStatus(status);
+    } catch (error) {
+      console.error("Start monitoring failed:", error);
+      setErrorMessage(
+        "Failed to start monitoring. Check adapter connection, vehicle key position, and /dev/ttyUSB0."
+      );
+    } finally {
+      setIsMonitoringBusy(false);
+    }
+  }
+
+  async function handleStopMonitoring() {
+    setIsMonitoringBusy(true);
+    setErrorMessage(null);
+
+    try {
+      const status = await stopMonitoring();
+      setMonitoringStatus(status);
+    } catch (error) {
+      console.error("Stop monitoring failed:", error);
+      setErrorMessage("Failed to stop monitoring.");
+    } finally {
+      setIsMonitoringBusy(false);
     }
   }
 
@@ -126,7 +193,7 @@ function App() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">OBD2 AI Dashboard</h1>
           <p className="text-slate-400">
-            Full-stack automotive diagnostic dashboard prototype.
+            Full-stack automotive diagnostic dashboard and fleet monitoring prototype.
           </p>
         </div>
 
@@ -168,6 +235,14 @@ function App() {
         )}
 
         <div className="grid gap-5">
+          <MonitoringPanel
+            status={monitoringStatus}
+            onStart={handleStartMonitoring}
+            onStop={handleStopMonitoring}
+            onRefresh={loadMonitoringStatus}
+            isBusy={isMonitoringBusy}
+          />
+
           {scan ? (
             <>
               <ScanSummaryCard
