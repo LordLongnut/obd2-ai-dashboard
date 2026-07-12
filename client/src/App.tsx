@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { AiDiagnosis, ObdScan } from "./types/obd";
+
 import { fetchLiveObdSnapshot, fetchMockObdScan } from "./services/obdApi";
 import { requestAiDiagnosis } from "./services/aiApi";
 import {
@@ -19,15 +20,35 @@ import VehicleCard from "./components/dashboard/VehicleCard";
 import ScanSummaryCard from "./components/dashboard/ScanSummaryCard";
 import ScanHistoryPanel from "./components/dashboard/ScanHistoryPanel";
 import MonitoringPanel from "./components/dashboard/MonitoringPanel";
+
 import LiveDataGrid from "./components/obd/LiveDataGrid";
 import DtcList from "./components/obd/DtcList";
 import FreezeFrameData from "./components/obd/FreezeFrameData";
 import ReadinessMonitors from "./components/obd/ReadinessMonitors";
+
 import SymptomInput from "./components/ai/SymptomInput";
 import AiAssistantPanel from "./components/ai/AiAssistantPanel";
 import DiagnosticReport from "./components/ai/DiagnosticReport";
 
+import BlackBoxDashboard, {
+  type BlackBoxSection
+} from "./components/blackbox/BlackBoxDashboard";
+
 type ScanSource = "simulated" | "live" | null;
+
+type EmptyModuleProps = {
+  title: string;
+  message: string;
+};
+
+function EmptyModule({ title, message }: EmptyModuleProps) {
+  return (
+    <div className="rounded-xl border border-sky-500/20 bg-slate-950/60 p-6 text-slate-300">
+      <h2 className="mb-2 text-lg font-semibold text-sky-300">{title}</h2>
+      <p className="m-0 text-sm leading-6 text-slate-400">{message}</p>
+    </div>
+  );
+}
 
 function App() {
   const [scan, setScan] = useState<ObdScan | null>(null);
@@ -43,6 +64,8 @@ function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isMonitoringBusy, setIsMonitoringBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [activeSection, setActiveSection] =
+    useState<BlackBoxSection>("home");
 
   async function loadScanHistory() {
     try {
@@ -71,11 +94,11 @@ function App() {
   useEffect(() => {
     void loadMonitoringStatus();
 
-    const interval = setInterval(() => {
+    const interval = window.setInterval(() => {
       void loadMonitoringStatus();
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => window.clearInterval(interval);
   }, []);
 
   async function handleStartMonitoring() {
@@ -122,6 +145,7 @@ function App() {
       setScanSource("simulated");
       setDiagnosis(null);
       setLastSavedScanId(null);
+      setActiveSection("data");
     } catch (error) {
       console.error("Simulated scan failed:", error);
       setErrorMessage("Failed to fetch simulated OBD-II scan data.");
@@ -141,6 +165,7 @@ function App() {
       setScanSource("live");
       setDiagnosis(null);
       setLastSavedScanId(null);
+      setActiveSection("data");
     } catch (error) {
       console.error("Live scan failed:", error);
       setErrorMessage(
@@ -176,6 +201,7 @@ function App() {
 
       setLastSavedScanId(savedRecord.id);
       setSaveMessage("Scan and AI diagnosis saved to history.");
+      setActiveSection("ai");
 
       const records = await fetchScanHistory();
       setScanHistory(records);
@@ -187,108 +213,182 @@ function App() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-slate-950 text-white p-8">
-      <section className="max-w-5xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">OBD2 AI Dashboard</h1>
-          <p className="text-slate-400">
-            Full-stack automotive diagnostic dashboard and fleet monitoring prototype.
-          </p>
-        </div>
+  function handleSectionChange(section: BlackBoxSection) {
+    setActiveSection(section);
+    setErrorMessage(null);
+    setSaveMessage(null);
 
-        <div className="flex flex-wrap gap-3 mb-5">
-          <button
-            onClick={runSimulatedScan}
-            disabled={isScanning}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-semibold"
-          >
-            {isScanning ? "Scanning..." : "Run Simulated Scan"}
-          </button>
+    if (section === "trips" || section === "reports") {
+      void loadScanHistory();
+    }
+  }
 
-          <button
-            onClick={runLiveScan}
-            disabled={isScanning}
-            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-900 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-semibold"
-          >
-            {isScanning ? "Scanning..." : "Run Live Scan"}
-          </button>
-
-          <button
-            onClick={loadScanHistory}
-            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2 rounded-lg font-semibold"
-          >
-            Load Scan History
-          </button>
-        </div>
-
-        {errorMessage && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-200 rounded-xl p-4 mb-5">
-            {errorMessage}
-          </div>
-        )}
-
-        {saveMessage && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 rounded-xl p-4 mb-5">
-            {saveMessage}
-          </div>
-        )}
-
-        <div className="grid gap-5">
-          <MonitoringPanel
-            status={monitoringStatus}
-            onStart={handleStartMonitoring}
-            onStop={handleStopMonitoring}
-            onRefresh={loadMonitoringStatus}
-            isBusy={isMonitoringBusy}
-          />
-
-          {scan ? (
-            <>
-              <ScanSummaryCard
-                scan={scan}
-                scanSource={scanSource}
-                diagnosis={diagnosis}
-              />
-              <VehicleCard vehicle={scan.vehicle} />
-              <LiveDataGrid liveData={scan.liveData} />
-              <DtcList troubleCodes={scan.troubleCodes} />
-              <FreezeFrameData freezeFrame={scan.freezeFrame} />
-              <ReadinessMonitors monitors={scan.readinessMonitors} />
-              <SymptomInput value={symptoms} onChange={setSymptoms} />
-              <AiAssistantPanel
-                hasScan={true}
-                diagnosis={diagnosis}
-                isLoading={isAnalyzing}
-                onAnalyze={analyzeWithAi}
-              />
-
-              {diagnosis && (
-                <DiagnosticReport
-                  scan={scan}
-                  diagnosis={diagnosis}
-                  symptoms={symptoms}
-                  scanSource={scanSource}
-                />
-              )}
-            </>
-          ) : (
-            <AiAssistantPanel
-              hasScan={false}
-              diagnosis={null}
-              isLoading={false}
-              onAnalyze={analyzeWithAi}
+  function renderDetailContent() {
+    switch (activeSection) {
+      case "vehicles":
+        return scan ? (
+          <div className="grid gap-5">
+            <ScanSummaryCard
+              scan={scan}
+              scanSource={scanSource}
+              diagnosis={diagnosis}
             />
-          )}
+            <VehicleCard vehicle={scan.vehicle} />
+          </div>
+        ) : (
+          <EmptyModule
+            title="No vehicle data loaded"
+            message="Run a live scan or simulated scan to identify the vehicle and display its current health information."
+          />
+        );
 
+      case "trips":
+        return (
           <ScanHistoryPanel
             records={scanHistory}
             onRefresh={loadScanHistory}
             lastSavedScanId={lastSavedScanId}
           />
-        </div>
-      </section>
-    </main>
+        );
+
+      case "alerts":
+        return scan ? (
+          <div className="grid gap-5">
+            <DtcList troubleCodes={scan.troubleCodes} />
+            <FreezeFrameData freezeFrame={scan.freezeFrame} />
+            <ReadinessMonitors monitors={scan.readinessMonitors} />
+          </div>
+        ) : (
+          <EmptyModule
+            title="No alert data loaded"
+            message="Run a scan before opening the alert module. Trouble codes, freeze-frame data, and readiness monitors will appear here."
+          />
+        );
+
+      case "data":
+        return (
+          <div className="grid gap-5">
+            <MonitoringPanel
+              status={monitoringStatus}
+              onStart={handleStartMonitoring}
+              onStop={handleStopMonitoring}
+              onRefresh={loadMonitoringStatus}
+              isBusy={isMonitoringBusy}
+            />
+
+            {scan ? (
+              <LiveDataGrid liveData={scan.liveData} />
+            ) : (
+              <EmptyModule
+                title="No live data loaded"
+                message="Start monitoring or run a scan to populate the live OBD-II data grid."
+              />
+            )}
+          </div>
+        );
+
+      case "ai":
+        return (
+          <div className="grid gap-5">
+            {scan ? (
+              <>
+                <SymptomInput value={symptoms} onChange={setSymptoms} />
+                <AiAssistantPanel
+                  hasScan={true}
+                  diagnosis={diagnosis}
+                  isLoading={isAnalyzing}
+                  onAnalyze={analyzeWithAi}
+                />
+
+                {diagnosis && (
+                  <DiagnosticReport
+                    scan={scan}
+                    diagnosis={diagnosis}
+                    symptoms={symptoms}
+                    scanSource={scanSource}
+                  />
+                )}
+              </>
+            ) : (
+              <AiAssistantPanel
+                hasScan={false}
+                diagnosis={null}
+                isLoading={false}
+                onAnalyze={analyzeWithAi}
+              />
+            )}
+          </div>
+        );
+
+      case "reports":
+        return (
+          <div className="grid gap-5">
+            {scan && (
+              <ScanSummaryCard
+                scan={scan}
+                scanSource={scanSource}
+                diagnosis={diagnosis}
+              />
+            )}
+
+            <ScanHistoryPanel
+              records={scanHistory}
+              onRefresh={loadScanHistory}
+              lastSavedScanId={lastSavedScanId}
+            />
+          </div>
+        );
+
+      case "settings":
+        return (
+          <div className="grid gap-5">
+            <MonitoringPanel
+              status={monitoringStatus}
+              onStart={handleStartMonitoring}
+              onStop={handleStopMonitoring}
+              onRefresh={loadMonitoringStatus}
+              isBusy={isMonitoringBusy}
+            />
+
+            <EmptyModule
+              title="Logger configuration"
+              message="Vehicle assignment, upload behavior, sampling intervals, and CAN logging options can be added to this module as those settings are exposed by the backend."
+            />
+          </div>
+        );
+
+      case "home":
+      default:
+        return null;
+    }
+  }
+
+  const dashboardMonitoringStatus = monitoringStatus
+    ? {
+        isEnabled: monitoringStatus.isRunning,
+        lastProbeAt: monitoringStatus.lastSampleAt
+      }
+    : null;
+
+  return (
+    <BlackBoxDashboard
+      scan={scan}
+      diagnosis={diagnosis}
+      monitoringStatus={dashboardMonitoringStatus}
+      activeSection={activeSection}
+      onSectionChange={handleSectionChange}
+      onRunLiveScan={runLiveScan}
+      onRunSimulatedScan={runSimulatedScan}
+      onAnalyze={analyzeWithAi}
+      onStartMonitoring={handleStartMonitoring}
+      onStopMonitoring={handleStopMonitoring}
+      isScanning={isScanning}
+      isAnalyzing={isAnalyzing}
+      isMonitoringBusy={isMonitoringBusy}
+      errorMessage={errorMessage}
+      saveMessage={saveMessage}
+      detailContent={renderDetailContent()}
+    />
   );
 }
 
